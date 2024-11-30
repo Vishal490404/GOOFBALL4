@@ -1,5 +1,9 @@
 import axios from "axios";
 import { config } from "dotenv";
+import { setReminder } from "./reminderService.js";
+import fs from 'fs/promises'
+import { callDaddyFn } from "./app.js";
+
 config();
 
 const hostList = [
@@ -14,7 +18,7 @@ const hostList = [
 ];
 
 const now = new Date();
-const utcOffset = 5.5 * 60 * 60 * 1000;
+export const utcOffset = 5.5 * 60 * 60 * 1000;
 let nowString = new Date(now)
 nowString.setDate(nowString.getDate() + 2)
 nowString.setHours(5.5,30,0,0)
@@ -33,10 +37,23 @@ const startString = start.toISOString();
 
 // console.log(nowString);
 
+async function checkFileAndDelete() {
+    try {
+        await fs.stat('reminderFile.txt');
+        await fs.unlink('reminderFile.txt');
+        return true;
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            return true;
+        }   
+        console.log("Something went wrong:", err);
+        return false;
+    }
+}
 
 
 
-export async function fetchData() {
+export async function fetchData(sock) {
     try {
         const url = `${process.env.API_URL}/contest/?username=${process.env.API_USERNAME}&api_key=${process.env.API_KEY}&start__gt=${startString}&order_by=start`;
         // console.log("Request URL:", url);
@@ -67,10 +84,15 @@ export async function fetchData() {
                 return hostList.includes(obj.host) && (startDate < dayaftertomorrow)
             })
             // console.log(filtered_data);
-            return createMessage(filtered_data)
+            if (await checkFileAndDelete()){
+                return createMessage(filtered_data)
+            }else{
+                return callDaddyFn(sock, "Some Error occurred in getContestDetails.js")
+            }
             
         } else {
             console.log("Today no contests, Chill!");
+            return createMessage([])
         }
     } catch (error) {
         console.error("Error fetching data:", error);
@@ -105,7 +127,7 @@ function createMessage(filtered_data) {
             hour: "2-digit",
             minute: "2-digit",
         });
-        let platformIcon = '🚀';
+        let platformIcon = '👨🏽‍💻';
         if (contest.host.includes('codeforces')) platformIcon = '🏆';
         else if (contest.host.includes('leetcode')) platformIcon = '💡';
         else if (contest.host.includes('codechef')) platformIcon = '👨‍🍳';
@@ -139,7 +161,9 @@ Here are the daily contest updates:
 
     if (TodayContests.length > 0) {
         TodayContests.forEach(contest => {
-            messageToSend += formatContest(contest);
+            const createdMessage = formatContest(contest)
+            setReminder(createdMessage, contest.start)
+            messageToSend += createdMessage;
         });
     } else {
         messageToSend += "No contests today. Rest up!🍹 And don't forget to practice \n\n";
@@ -161,9 +185,8 @@ Here are the daily contest updates:
 
     return messageToSend;
 }
-
-// const ans = await fetchData();
-// console.log(ans);
+const ans = await fetchData();
+console.log(ans);
 
 // createMessage()
 

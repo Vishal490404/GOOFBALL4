@@ -1,0 +1,8 @@
+{
+  "time": "2024-11-30T11:30:00.000Z",
+  "message": " 👨🏽‍💻 *AtCoder Beginner Contest 382*\n ⏰ 05:30 pm\n 🔗 [atcoder.jp](https://atcoder.jp/contests/abc382)\n\n"
+},
+{
+  "time": "2024-11-30T14:05:00.000Z",
+  "message": " 🏆 *Rayan Programming Contest 2024 - Selection (Codeforces Round 989, Div. 1 + Div. 2)*\n ⏰ 08:05 pm\n 🔗 [codeforces.com](https://codeforces.com/contests/2034)\n\n"
+},

@@ -1,9 +1,20 @@
 import { DisconnectReason, useMultiFileAuthState, makeWASocket } from "@whiskeysockets/baileys";
 import { fetchData } from "./getContestDetails.js";
+import { IDS } from "./ids.js";
 
+
+
+export async function callDaddyFn(sock, errString){
+    try {
+        return await sock.sendMessage('919322512338@s.whatsapp.net', { text: errString });
+    } catch (err) {
+        console.error("Failed to send error message:", err);
+        process.exit(56);
+    }
+}
 async function connectionLogic() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
-    const ids = ['120363055841239377@g.us', '919322512338@s.whatsapp.net', '917038815102@s.whatsapp.net', '917517756075@s.whatsapp.net'];
+    const ids = IDS;
     
 
     const sock = makeWASocket({
@@ -26,12 +37,12 @@ async function connectionLogic() {
                 console.log("Reconnecting...");
                 connectionLogic();
             } else {
-                console.log("Logged out. Please re-authenticate.");
+                return callDaddyFn(sock, "Logged out. Please re-authenticate.");
             }
         } else if (connection === 'open') {
             console.log("Connected!");
             try {
-                const payload = await fetchData(); 
+                const payload = await fetchData(sock); 
                 // console.log("Filtered Data:", payload);
 
                 if (payload.length > 0) {
@@ -41,9 +52,10 @@ async function connectionLogic() {
                     process.exit(0); 
                 } else {
                     console.log("No contests to notify about.");
+                    return callDaddyFn(sock, "No contests found or error occurred in app.js");
                 }
             } catch (error) {
-                console.error("Failed to send message:", error);
+                return callDaddyFn(sock, `Error in app.js: ${error.message}`);
             }
         }
     });
@@ -58,8 +70,5 @@ async function connectionLogic() {
 
     sock.ev.on('creds.update', saveCreds);
 }
-
-
-
 
 connectionLogic();
