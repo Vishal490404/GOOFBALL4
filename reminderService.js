@@ -1,8 +1,6 @@
 import fs from 'fs/promises';
 import { exec } from 'child_process';
 
-
-
 const utcOffset = 5.5 * 60 * 60 * 1000;
 export async function setReminder(messageString, startTime) {
     try {

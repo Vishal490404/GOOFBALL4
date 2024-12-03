@@ -65,28 +65,44 @@ async function getReminders(sock) {
         const currentTime = new Date();
         currentTime.setTime(currentTime.getTime() + utcOffset)
         const twoMinsLater = new Date(currentTime);
-        twoMinsLater.setTime(twoMinsLater.getTime() + 2 * 60000)
+        twoMinsLater.setTime(twoMinsLater.getTime() + 2 * 600000)
         const twoMinsBefore = new Date(currentTime);
         twoMinsBefore.setTime(twoMinsBefore.getTime() - 2 * 60000)
         // console.log(reminders)
-        const reminder = reminders.filter(reminder => {
+        const remindersToSend = reminders.filter(reminder => {
             const reminderTime = new Date(reminder.time);
             reminderTime.setTime(reminderTime.getTime() + utcOffset)
             // console.log(reminderTime, twoMinsLater, twoMinsBefore);
             
-            return reminderTime <= twoMinsLater && reminderTime >= twoMinsBefore;
+            return reminderTime <= twoMinsLater
         });
-        // console.log(reminder);
+        // console.log(remindersToSend);
         
-        if (reminder.length > 0) {
+        if (remindersToSend.length > 0) {
             let message = `🛑 *REMINDER* 🛑\n\n`
 
-            reminder.forEach(element => {
-                message += element.message.replace(/\n$/, '');
+            remindersToSend.forEach(element => {
+                message += element.message;
             });
 
             // await Promise.all(ids.map(id => sock.sendMessage(id, { text: message })));
+            for (const id of ids) {
+                try {
+                  await sock.sendMessage(id, { text: message });
+                  console.log(`Message sent to: ${id}`);
+                } catch (error) {
+                  console.error(`Failed to send message to: ${id}`, error);
+                }
+            }
             console.log("Reminder Sent Successfully");
+            const remainingReminders = reminders.filter(reminder => 
+                !remindersToSend.includes(reminder)
+            );
+
+            const updatedData = remainingReminders
+                .map(reminder => JSON.stringify(reminder) + ',\n')
+                .join('');
+            await fs.writeFile('reminderFile.txt', updatedData, 'utf-8');
             
             process.exit(0)
             
@@ -96,7 +112,7 @@ async function getReminders(sock) {
         }
     } catch (error) {
         return callDaddyFn(sock, `Error in sendReminder.js: ${error}`);
-        // process.exit(0)
+
     }
 }
 

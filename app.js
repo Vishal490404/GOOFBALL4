@@ -46,7 +46,15 @@ async function connectionLogic() {
                 // console.log("Filtered Data:", payload);
 
                 if (payload.length > 0) {
-                    await Promise.all(ids.map(id => sock.sendMessage(id, { text: payload })));
+                    // await Promise.all(ids.map(id => sock.sendMessage(id, { text: payload })));
+                    for (const id of ids) {
+                        try {
+                          await sock.sendMessage(id, { text: payload });
+                          console.log(`Message sent to: ${id}`);
+                        } catch (error) {
+                          console.error(`Failed to send message to: ${id}`, error);
+                        }
+                    }
                     // await sock.logout();
                     console.log("Message sent successfully.");
                     process.exit(0); 
