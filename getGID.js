@@ -30,7 +30,8 @@ async function connectionLogic() {
         } else if (connection === 'open') {
             console.log("Connected!");
             try {
-                console.log("Hey There!");
+               
+                // process.exit(0)
                 
             } catch (error) {
                 // return callDaddyFn(sock, `Error in app.js: ${error.message}`);
@@ -41,7 +42,7 @@ async function connectionLogic() {
 
     sock.ev.on('messages.update', (messageInfo) => {
         console.log("Chat updated:", messageInfo);
-    });
+    }); 
 
     sock.ev.on('messages.upsert', (messageInfo) => {
         console.log("Some Change:", messageInfo?.messages);

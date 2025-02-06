@@ -9,12 +9,12 @@ config();
 const hostList = [
     "codechef.com",
     "codeforces.com",
-    "geeksforgeeks.org",
+    // "geeksforgeeks.org",
     "leetcode.com",
-    "topcoder.com",
+    // "topcoder.com",
     "atcoder.jp",
-    "adventofcode.com",
-    "facebook.com/hackercup"
+    // "adventofcode.com",
+    // "facebook.com/hackercup"
 ];
 
 const now = new Date();
