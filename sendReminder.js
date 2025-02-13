@@ -1,12 +1,14 @@
 import { DisconnectReason, useMultiFileAuthState, makeWASocket } from "@whiskeysockets/baileys";
 import { IDS } from "./ids.js";
 import fs from 'fs/promises';
+import dotenv from 'dotenv';
 
+dotenv.config();
 
 const utcOffset = 5.5 * 60 * 60 * 1000;
 async function callDaddyFn(sock, errString){
     try {
-        return await sock.sendMessage('919322512338@s.whatsapp.net', { text: errString });
+        return await sock.sendMessage(`${process.env.DADDY_NUMBER}@s.whatsapp.net`, { text: errString });
     } catch (err) {
         console.error("Failed to send error message:", err);
         process.exit(56);
