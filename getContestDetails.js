@@ -9,10 +9,11 @@ config();
 const hostList = [
     "codechef.com",
     "codeforces.com",
-    // "geeksforgeeks.org",
+    "geeksforgeeks.org",
     "leetcode.com",
-    // "topcoder.com",
+    "topcoder.com",
     "atcoder.jp",
+    "naukri.com/code360",
     // "adventofcode.com",
     // "facebook.com/hackercup"
 ];

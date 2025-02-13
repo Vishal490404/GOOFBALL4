@@ -65,16 +65,16 @@ async function getReminders(sock) {
         const currentTime = new Date();
         currentTime.setTime(currentTime.getTime() + utcOffset)
         const twoMinsLater = new Date(currentTime);
-        twoMinsLater.setTime(twoMinsLater.getTime() + 2 * 600000)
+        twoMinsLater.setTime(twoMinsLater.getTime() + 5 * 60000)
         const twoMinsBefore = new Date(currentTime);
-        twoMinsBefore.setTime(twoMinsBefore.getTime() - 2 * 60000)
+        twoMinsBefore.setTime(twoMinsBefore.getTime() - 5 * 60000)
         // console.log(reminders)
         const remindersToSend = reminders.filter(reminder => {
             const reminderTime = new Date(reminder.time);
             reminderTime.setTime(reminderTime.getTime() + utcOffset)
             // console.log(reminderTime, twoMinsLater, twoMinsBefore);
             
-            return reminderTime <= twoMinsLater
+            return reminderTime >= twoMinsBefore && reminderTime <= twoMinsLater
         });
         // console.log(remindersToSend);
         
@@ -107,7 +107,7 @@ async function getReminders(sock) {
             process.exit(0)
             
         } else {
-            console.log("No reminders within the next 2 minutes.");
+            console.log("No reminders within the next 5 minutes.");
             process.exit(0)
         }
     } catch (error) {
@@ -117,6 +117,7 @@ async function getReminders(sock) {
 }
 
 sendReminder()
+// getReminders()
 
 
 
