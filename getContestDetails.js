@@ -1,113 +1,17 @@
 import axios from "axios";
-import { config } from "dotenv";
 import { setReminder } from "./reminderService.js";
-import fs from 'fs/promises'
-import { callDaddyFn } from "./app.js";
+import { checkFileAndDelete, messageAdmin } from "./utility.js";
+import config from "./config.js";
 
-config();
-
-const hostList = [
-    "codechef.com",
-    "codeforces.com",
-    // "geeksforgeeks.org",
-    "leetcode.com",
-    // "topcoder.com",
-    "atcoder.jp",
-    // "naukri.com/code360", // Only for testing
-    // "adventofcode.com",
-    // "facebook.com/hackercup"
-];
-
-const now = new Date();
-export const utcOffset = 5.5 * 60 * 60 * 1000;
-let nowString = new Date(now)
-nowString.setDate(nowString.getDate() + 2)
-nowString.setHours(5.5,30,0,0)
-nowString = nowString.toISOString()
-// Indian GMT
-// console.log(nowString);
-
-const start = new Date();
-// console.log(start)
-start.setDate(start.getDate());
-
-start.setHours(5.5, 30, 0, 0);
-// console.log(now)
-const startString = start.toISOString();
-// console.log((startString));
-
-// console.log(nowString);
-
-async function checkFileAndDelete() {
-    try {
-        await fs.stat('reminderFile.txt');
-        await fs.unlink('reminderFile.txt');
-        return true;
-    } catch (err) {
-        if (err.code === 'ENOENT') {
-            return true;
-        }   
-        console.log("Something went wrong:", err);
-        return false;
-    }
-}
-
-
-
-export async function fetchData(sock) {
-    try {
-        const url = `${process.env.API_URL}/contest/?username=${process.env.API_USERNAME}&api_key=${process.env.API_KEY}&start__gt=${startString}&order_by=start`;
-        // console.log("Request URL:", url);
-
-        const response = await axios.get(url);
-
-        // console.log(response.data.meta.total_count);
-
-        
-        if (response.data.objects.length > 0) {
-            const clean_data = response.data.objects
-            // console.log(clean_data)
-            const filtered_data = clean_data.filter((obj) => {
-                const startDate = new Date(obj.start);
-                const today = new Date(now);
-                const dayaftertomorrow = new Date(now)
-                today.setHours(5.5,30,0,0)
-                dayaftertomorrow.setHours(5.5,30,0,0)
-
-                dayaftertomorrow.setDate(today.getDate() + 2)
-                startDate.setTime(startDate.getTime() + utcOffset)
-                // if (hostList.includes(obj.host) && (startDate < dayaftertomorrow)){
-                //     // console.log(obj)
-                //     console.log(obj.start)
-                //     console.log(startDate,today, dayaftertomorrow);
-                // }
-                
-                return hostList.includes(obj.host) && (startDate < dayaftertomorrow)
-            })
-            // console.log(filtered_data);
-            if (await checkFileAndDelete()){
-                return createMessage(filtered_data)
-            }else{
-                return callDaddyFn(sock, "Some Error occurred in getContestDetails.js")
-            }
-            
-        } else {
-            console.log("Today no contests, Chill!");
-            return createMessage([])
-        }
-    } catch (error) {
-        console.error("Error fetching data:", error);
-    }
-}
-
-
-
-
-function createMessage(filtered_data) {
-    // filtered_data = []
+/**
+ * Formats contest data into a readable message and handles reminders
+ * @param {Array} filteredData Array of contest objects
+ * @returns {string} Formatted message to send via WhatsApp
+ */
+function createMessage(filteredData) {
     const todayDate = new Date();
-    const tomorrowDate = new Date(todayDate)
-    tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+    const tomorrowDate = new Date(todayDate);
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
     
     const formattedDate = todayDate.toLocaleDateString("en-IN", {
         day: "2-digit",
@@ -116,41 +20,45 @@ function createMessage(filtered_data) {
     });
     const dayOfWeek = todayDate.toLocaleDateString("en-IN", { weekday: "long" });
     
-    const formattedDateTomo = tomorrowDate.toLocaleDateString("en-IN",{
+    const formattedDateTomo = tomorrowDate.toLocaleDateString("en-IN", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric"
-    })
+    });
     const dayOfWeekTomo = tomorrowDate.toLocaleDateString("en-IN", { weekday: "long" });
 
+    /**
+     * Format a single contest for display
+     * @param {Object} contest The contest data object
+     * @returns {string} Formatted contest string
+     */
     const formatContest = (contest) => {
-        const startTime = new Date(new Date(contest.start).getTime() + utcOffset).toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-        let platformIcon = '👨🏽‍💻';
-        if (contest.host.includes('codeforces')) platformIcon = '🏆';
-        else if (contest.host.includes('leetcode')) platformIcon = '💡';
-        else if (contest.host.includes('codechef')) platformIcon = '👨‍🍳';
-        else if (contest.host.includes('topcoder')) platformIcon = '🥇';
+        const startTime = new Date(new Date(contest.start).getTime() + config.time.utcOffset)
+            .toLocaleTimeString("en-IN", {
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+        
+        // Get platform icon from config or use default
+        const platformIcon = config.platforms.icons[contest.host] || config.platforms.icons.default;
         
         return ` ${platformIcon} *${contest.event}*\n ⏰ ${startTime}\n 🔗 [${contest.host}](${contest.href})\n\n`;
     };
 
-    const TodayContests = filtered_data.filter((obj) => {
-        const dateInObj = new Date(obj.start);
-        return todayDate.getDate() === dateInObj.getDate() &&
-               todayDate.getMonth() === dateInObj.getMonth() &&
-               todayDate.getFullYear() === dateInObj.getFullYear();
+    const todayContests = filteredData.filter((obj) => {
+        const contestDate = new Date(obj.start);
+        return todayDate.getDate() === contestDate.getDate() &&
+               todayDate.getMonth() === contestDate.getMonth() &&
+               todayDate.getFullYear() === contestDate.getFullYear();
     });
 
-    const TomorrowContests = filtered_data.filter((obj) => {
-        const dateInObj = new Date(obj.start);
+    const tomorrowContests = filteredData.filter((obj) => {
+        const contestDate = new Date(obj.start);
         const tomorrow = new Date(todayDate);
         tomorrow.setDate(todayDate.getDate() + 1);
-        return tomorrow.getDate() === dateInObj.getDate() &&
-               tomorrow.getMonth() === dateInObj.getMonth() &&
-               tomorrow.getFullYear() === dateInObj.getFullYear();
+        return tomorrow.getDate() === contestDate.getDate() &&
+               tomorrow.getMonth() === contestDate.getMonth() &&
+               tomorrow.getFullYear() === contestDate.getFullYear();
     });
 
     let messageToSend = `
@@ -160,21 +68,23 @@ Here are the daily contest updates:
 *Today* (${dayOfWeek}, ${formattedDate}):
 `;
 
-    if (TodayContests.length > 0) {
-        TodayContests.forEach(contest => {
-            const createdMessage = formatContest(contest)
-            setReminder(createdMessage, contest.start)
+    if (todayContests.length > 0) {
+        todayContests.forEach(contest => {
+            const createdMessage = formatContest(contest);
+            setReminder(createdMessage, contest.start).catch(err => 
+                console.error(`Failed to set reminder: ${err.message}`)
+            );
             messageToSend += createdMessage;
         });
     } else {
         messageToSend += "No contests today. Rest up!🍹 And don't forget to practice \n\n";
     }
-    messageToSend += '────────────────\n\n'
+    messageToSend += '────────────────\n\n';
     messageToSend += `*Tomorrow* (${dayOfWeekTomo}, ${formattedDateTomo}):
 `;
 
-    if (TomorrowContests.length > 0) {
-        TomorrowContests.forEach(contest => {
+    if (tomorrowContests.length > 0) {
+        tomorrowContests.forEach(contest => {
             messageToSend += formatContest(contest);
         });
     } else {
@@ -186,12 +96,70 @@ Here are the daily contest updates:
 
     return messageToSend;
 }
-const ans = await fetchData();
-console.log(ans);
+// const ans = await fetchData();
+// console.log(ans);
 
 // createMessage()
 
 
+/**
+ * Fetches contest data from the API and processes it
+ * @param {Object} sock WhatsApp socket connection
+ * @returns {Promise<string>} The message to send or null if error
+ */
+export async function fetchData(sock) {
+    try {
+        const start = new Date();
+        // console.log(start)
+        start.setDate(start.getDate());
+
+        start.setHours(5.5, 30, 0, 0);
+        // console.log(now)
+        const startString = start.toISOString();
+        // console.log(startString)
+        
+        const url = `${config.api.clist.baseUrl}?username=${config.api.clist.username}&api_key=${config.api.clist.apiKey}&start__gt=${startString}&order_by=start`;
+        
+        const response = await axios.get(url);
+        // console.log(response.data.meta);
+        
+        if (response.data.objects.length > 0) {
+            const cleanData = response.data.objects;
+            // console.log(cleanData);
+            
+            // Filter data by host and date range
+            const filteredData = cleanData.filter((obj) => {
+                const startDate = new Date(obj.start);
+                const today = new Date(start);
+                const dayAfterTomorrow = new Date(start);
+                
+                today.setHours(0, 0, 0, 0);
+                dayAfterTomorrow.setHours(23, 59, 59, 999);
+                dayAfterTomorrow.setDate(today.getDate() + 2);
+                
+                startDate.setTime(startDate.getTime() + config.time.utcOffset);
+                
+                return config.platforms.hosts.includes(obj.host) && (startDate < dayAfterTomorrow);
+            });
+            // console.log(filteredData);
+            
+            if (await checkFileAndDelete()) {
+                return createMessage(filteredData);
+            } else {
+                return messageAdmin(sock, "Error clearing reminder file in getContestDetails.js");
+            }
+        } else {
+            console.log("No contests found for the next two days.");
+            return createMessage([]);
+        }
+    } catch (error) {
+        // console.error("Error fetching contest data:", error);
+        return messageAdmin(sock, `Error fetching contest data: ${error.message}`);
+    }
+}
+
+// fetchData()
+// API response example
 // {
 //     duration: 10800,
 //     end: '2024-11-30T17:35:00',

@@ -1,4 +1,5 @@
 import { DisconnectReason, useMultiFileAuthState, makeWASocket } from "@whiskeysockets/baileys";
+import readline from 'readline';
 
 
 async function connectionLogic() {
@@ -6,7 +7,6 @@ async function connectionLogic() {
     
 
     const sock = makeWASocket({
-        printQRInTerminal: true,
         auth: state,
     });
 
@@ -29,14 +29,26 @@ async function connectionLogic() {
             }
         } else if (connection === 'open') {
             console.log("Connected!");
-            try {
-               
-                // process.exit(0)
+            // try {
+            //     const response = await sock.groupFetchAllParticipating();
+            //     const rl = readline.createInterface({
+            //         input: process.stdin,
+            //         output: process.stdout
+            //     });
+            //     console.log(response);
                 
-            } catch (error) {
-                // return callDaddyFn(sock, `Error in app.js: ${error.message}`);
-                return error
-            }
+            //     rl.question('Enter the group name: ', (inputName) => {
+            //         const group = Object.values(response).find(g => g.subject === inputName);
+            //         if (group) {
+            //             console.log(group);
+            //         } else {
+            //             console.log('Group not found.');
+            //         }
+            //         rl.close();
+            //     });
+            // } catch (error) {
+            //     return error;
+            // }
         }
     });
 

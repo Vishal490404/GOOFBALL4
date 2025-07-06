@@ -1,11 +1,18 @@
 import fs from 'fs/promises';
 import { exec } from 'child_process';
+import config from './config.js';
+import path from 'path';
 
-const utcOffset = 5.5 * 60 * 60 * 1000;
+/**
+ * Sets a reminder for a contest by saving it to a file and scheduling a task
+ * @param {string} messageString - The message for the reminder
+ * @param {string} startTime - ISO string of the contest start time
+ * @returns {Promise<void>}
+ */
 export async function setReminder(messageString, startTime) {
     try {
         const timeMatch = new Date(startTime);
-        timeMatch.setTime(timeMatch.getTime() +  utcOffset - 1800000);
+        timeMatch.setTime(timeMatch.getTime() + config.time.utcOffset - config.time.reminderOffset);
 
         const reminderObject = {
             time: timeMatch,
@@ -13,10 +20,10 @@ export async function setReminder(messageString, startTime) {
         };
 
         const reminderEntry = JSON.stringify(reminderObject, null, 2) + ',\n';
-        await fs.appendFile('reminderFile.txt', reminderEntry);
+        await fs.appendFile(config.paths.reminderFile, reminderEntry);
 
         const schedule = "once";
-        const taskCommand = "C:/Users/desai/OneDrive/Desktop/GOOFBALL4/runReminder.bat";
+        const taskCommand = path.join(config.paths.root, "runReminder.bat");
         const taskName = `Reminder_${timeMatch.getTime()}`;
 
         const cronTime = timeMatch.toLocaleTimeString('en-IN', {
@@ -39,7 +46,7 @@ export async function setReminder(messageString, startTime) {
                 console.error(`stderr: ${stderr}`);
                 return;
             }
-            // console.log(`Task created successfully: ${stdout}`);
+            console.log(`Task created successfully for ${new Date(timeMatch).toLocaleString()}`);
         });
     } catch (err) {
         console.error("Error saving reminder:", err.message);

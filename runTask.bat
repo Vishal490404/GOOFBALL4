@@ -1,2 +1,3 @@
-node "C:\Users\desai\OneDrive\Desktop\GOOFBALL4\app.js"
+cd "%~dp0"
+node app.js
 

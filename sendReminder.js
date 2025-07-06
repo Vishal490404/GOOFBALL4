@@ -1,87 +1,38 @@
-import { DisconnectReason, useMultiFileAuthState, makeWASocket } from "@whiskeysockets/baileys";
-import { IDS } from "./ids.js";
 import fs from 'fs/promises';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const utcOffset = 5.5 * 60 * 60 * 1000;
-async function callDaddyFn(sock, errString){
-    try {
-        return await sock.sendMessage(`${process.env.DADDY_NUMBER}@s.whatsapp.net`, { text: errString });
-    } catch (err) {
-        console.error("Failed to send error message:", err);
-        process.exit(56);
-    }
-}
-
-async function sendReminder() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
-    
-
-    const sock = makeWASocket({
-        printQRInTerminal: true,
-        auth: state,
-    });
-
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        if (qr) {
-            console.log("Scan this QR to log in:", qr);
-        }
-
-        if (connection === 'close') {
-            const shouldReconnect =
-                lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-
-            console.log(`Connection closed due to ${lastDisconnect?.error}`);
-            if (shouldReconnect) {
-                console.log("Reconnecting...");
-                connectionLogic();
-            } else {
-                return callDaddyFn(sock, "Logged out. Please re-authenticate.");
-            }
-        } else if (connection === 'open') {
-            console.log("Connected!");
-            try {
-                return await getReminders(sock)
-            } catch (error) {
-                return callDaddyFn(sock, `Error in reminderService.js: ${error}`);
-            }
-        }
-    });
-
-    sock.ev.on('creds.update', saveCreds);
-}
-
-// sendReminder();
-
-
+import { IDS } from "./ids.js";
+import config from "./config.js";
+import { connectionLogic } from "./app.js";
+import { messageAdmin } from './utility.js';
 
 async function getReminders(sock) {
     const ids = IDS;
     try {
-        const remindersData = await fs.readFile('reminderFile.txt', 'utf-8');
-        const reminders = JSON.parse(`[${remindersData.slice(0, -2)}]`);
+
+        const remindersData = await fs.readFile(config.paths.reminderFile, 'utf-8');
+        
+        if (!remindersData.trim()) {
+            console.log("No reminders found in file.");
+            process.exit(0);
+        }
+        
+        const remindersJson = `[${remindersData.replace(/,\s*$/, '')}]`;
+        const reminders = JSON.parse(remindersJson);
         
         const currentTime = new Date();
-        currentTime.setTime(currentTime.getTime() + utcOffset)
-        const twoMinsLater = new Date(currentTime);
-        twoMinsLater.setTime(twoMinsLater.getTime() + 5 * 60000)
-        const twoMinsBefore = new Date(currentTime);
-        twoMinsBefore.setTime(twoMinsBefore.getTime() - 5 * 60000)
-        // console.log(reminders)
+        currentTime.setTime(currentTime.getTime() + config.time.utcOffset);
+        
+        const timeWindow = 5 * 60 * 1000; 
+        const twoMinsLater = new Date(currentTime.getTime() + timeWindow);
+        const twoMinsBefore = new Date(currentTime.getTime() - timeWindow);
+        
         const remindersToSend = reminders.filter(reminder => {
             const reminderTime = new Date(reminder.time);
-            reminderTime.setTime(reminderTime.getTime() + utcOffset)
-            // console.log(reminderTime, twoMinsLater, twoMinsBefore);
-            
-            return reminderTime >= twoMinsBefore && reminderTime <= twoMinsLater
+            return reminderTime >= twoMinsBefore && reminderTime <= twoMinsLater;
         });
-        // console.log(remindersToSend);
+        console.log(remindersToSend);
         
         if (remindersToSend.length > 0) {
-            let message = `🛑 *REMINDER* 🛑\n\n`
+            let message = `🛑 *REMINDER* 🛑\n\n`;
 
             remindersToSend.forEach(element => {
                 message += element.message;
@@ -90,10 +41,10 @@ async function getReminders(sock) {
             // await Promise.all(ids.map(id => sock.sendMessage(id, { text: message })));
             for (const id of ids) {
                 try {
-                  await sock.sendMessage(id, { text: message });
-                  console.log(`Message sent to: ${id}`);
+                    await sock.sendMessage(id, { text: message });
+                    console.log(`Reminder sent to: ${id}`);
                 } catch (error) {
-                  console.error(`Failed to send message to: ${id}`, error);
+                    console.error(`Failed to send reminder to: ${id}`, error);
                 }
             }
             console.log("Reminder Sent Successfully");
@@ -101,24 +52,27 @@ async function getReminders(sock) {
                 !remindersToSend.includes(reminder)
             );
 
-            const updatedData = remainingReminders
-                .map(reminder => JSON.stringify(reminder) + ',\n')
-                .join('');
-            await fs.writeFile('reminderFile.txt', updatedData, 'utf-8');
+            if (remainingReminders.length > 0) {
+                const updatedData = remainingReminders
+                    .map(reminder => JSON.stringify(reminder, null, 2) + ',\n')
+                    .join('');
+                await fs.writeFile(config.paths.reminderFile, updatedData, 'utf-8');
+            } else {
+                await fs.writeFile(config.paths.reminderFile, '', 'utf-8');
+            }
             
-            process.exit(0)
-            
+            process.exit(0);
         } else {
-            console.log("No reminders within the next 5 minutes.");
-            process.exit(0)
+            console.log("No reminders due within the next 5 minutes.");
+            process.exit(0);
         }
     } catch (error) {
-        return callDaddyFn(sock, `Error in sendReminder.js: ${error}`);
-
+        console.error("Error processing reminders:", error);
+        return messageAdmin(sock, `Error in sendReminder.js: ${error.message}`);
     }
 }
 
-sendReminder()
+connectionLogic(getReminders(sock))
 // getReminders()
 
 

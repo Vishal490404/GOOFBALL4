@@ -1,82 +1,156 @@
-import { DisconnectReason, useMultiFileAuthState, makeWASocket } from "@whiskeysockets/baileys";
+import { DisconnectReason, useMultiFileAuthState, makeWASocket, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } from "@whiskeysockets/baileys";
 import { fetchData } from "./getContestDetails.js";
 import { IDS } from "./ids.js";
+import pino from 'pino';
+import QRCode from 'qrcode';
+import config from './config.js';
+import { messageAdmin } from './utility.js';
+import NodeCache from "node-cache";
+import https from 'https';
 
+const logger = pino({ level: 'error' });
 
+const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false })
 
-export async function callDaddyFn(sock, errString){
+async function connectionLogic(functionToExecute) {
     try {
-        return await sock.sendMessage('919322512338@s.whatsapp.net', { text: errString });
-    } catch (err) {
-        console.error("Failed to send error message:", err);
-        process.exit(56);
+        const { state, saveCreds } = await useMultiFileAuthState(config.paths.authInfo);
+        const { version } = await fetchLatestBaileysVersion();
+
+        const sock = makeWASocket({
+            version: version,
+            auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(state.keys, logger)
+            },
+            logger,
+            markOnlineOnConnect: true,
+            generateHighQualityLinkPreview: true,
+            cachedGroupMetadata: async (jid) => groupCache.get(jid),
+            options: {
+                httpsAgent: new https.Agent({
+                    rejectUnauthorized: false
+                })
+            }
+        });
+
+        sock.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect, qr, receivedPendingNotifications } = update;
+            
+            if (qr) {
+                await QRCode.toFile(config.paths.qrCodeFile, qr);
+                console.log(`QR Code saved to: ${config.paths.qrCodeFile}`);
+            }
+
+            if (connection === 'close') {
+                const statusCode = lastDisconnect?.error?.output?.statusCode;
+                console.log(`Connection closed due to ${lastDisconnect?.error}`);
+                
+                if (statusCode === DisconnectReason.loggedOut) {
+                    console.log("Logged out. Please re-authenticate.");
+                    return messageAdmin(sock, "Logged out. Please re-authenticate.");
+                } else if (statusCode === DisconnectReason.connectionClosed || 
+                           statusCode === DisconnectReason.connectionLost) {
+                    console.log("Connection Closed or Lost, reconnecting...");
+                    connectionLogic(functionToExecute);
+                } else if (statusCode === DisconnectReason.connectionReplaced) {
+                    console.log("Connection Replaced, please restart the application.");
+                    await messageAdmin(sock, "Connection replaced. Please restart the application.");
+                    process.exit(1);
+                } else if (statusCode === DisconnectReason.restartRequired) {
+                    console.log("Restart required, restarting...");
+                    connectionLogic(functionToExecute);
+                } else if (statusCode === DisconnectReason.timedOut) {
+                    console.log("Connection timed out, reconnecting...");
+                    connectionLogic(functionToExecute);
+                } else {
+                    console.log("Reconnecting...");
+                    connectionLogic(functionToExecute);
+                }
+            } else if (connection === 'open') {
+                console.log("Connected!");
+                if (typeof functionToExecute === 'function') {
+                    return await functionToExecute(sock);
+                } else {
+                    console.log("No function to execute after connection. Socket is ready.");
+                }
+            }
+            
+            if (receivedPendingNotifications) {
+                console.log("Waiting for new messages...");
+            }
+        });
+
+        // Messaging history event
+        sock.ev.on('messaging-history.set', ({ chats, contacts, messages, isLatest }) => {
+            console.log(`Received ${chats.length} chats, ${contacts.length} contacts, ${messages.length} messages (latest: ${isLatest})`);
+        });
+
+        // Status messages handling
+        sock.ev.on('messages.upsert', async ({ type, messages }) => {
+            if (!messages) return;
+            for (let message of messages) {
+                if (message.key && message.key.remoteJid === 'status@broadcast') {
+                    if (message.message?.protocolMessage) return;
+                    console.log(`Reading status from ${message.pushName || 'unknown'}`);
+                    await sock.readMessages([message.key]);
+                }
+            }
+        });
+
+        sock.ev.on('creds.update', saveCreds);
+    } catch (error) {
+        console.error("Error in connection logic:", error);
+        process.exit(1);
     }
 }
-async function connectionLogic() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
-    const ids = IDS;
-    
 
-    const sock = makeWASocket({
-        printQRInTerminal: true,
-        auth: state,
-    });
 
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        if (qr) {
-            console.log("Scan this QR to log in:", qr);
+async function moveFurther(sock) {
+    try {
+        const payload = await fetchData(sock);
+        const ids = IDS;
+        for(const id of ids){
+            if(id.endsWith('@g.us')) {
+                const metadata = await sock.groupMetadata(id)
+                groupCache.set(id, metadata)
+            } 
         }
-
-        if (connection === 'close') {
-            const shouldReconnect =
-                lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-
-            console.log(`Connection closed due to ${lastDisconnect?.error}`);
-            if (shouldReconnect) {
-                console.log("Reconnecting...");
-                connectionLogic();
-            } else {
-                return callDaddyFn(sock, "Logged out. Please re-authenticate.");
-            }
-        } else if (connection === 'open') {
-            console.log("Connected!");
-            try {
-                const payload = await fetchData(sock); 
-                // console.log("Filtered Data:", payload);
-
-                if (payload.length > 0) {
-                    // await Promise.all(ids.map(id => sock.sendMessage(id, { text: payload })));
-                    for (const id of ids) {
-                        try {
-                          await sock.sendMessage(id, { text: payload });
-                          console.log(`Message sent to: ${id}`);
-                        } catch (error) {
-                          console.error(`Failed to send message to: ${id}`, error);
-                        }
+        if (payload && payload.length > 0) {
+            let successCount = 0;
+            for (const id of ids) {
+                try {
+                    const isGroup = id.endsWith('@g.us');
+                    const groupInfo = isGroup ? groupCache.get(id) : null;
+                    await sock.sendMessage(id, { text: payload });
+                    if (isGroup && groupInfo) {
+                        console.log(`Message sent to group: ${groupInfo.subject} (${id})`);
+                    } else {
+                        console.log(`Message sent to: ${id}`);
                     }
-                    // await sock.logout();
-                    console.log("Message sent successfully.");
-                    process.exit(0); 
-                } else {
-                    console.log("No contests to notify about.");
-                    return callDaddyFn(sock, "No contests found or error occurred in app.js");
+                    successCount++;
+                } catch (error) {
+                    console.error(`Failed to send message to: ${id}`, error);
                 }
-            } catch (error) {
-                return callDaddyFn(sock, `Error in app.js: ${error.message}`);
             }
+
+            if (successCount > 0) {
+                console.log(`Contest updates sent successfully to ${successCount} recipients.`);
+            } else {
+                await messageAdmin(sock, "Failed to send messages to any recipients");
+            }
+            process.exit(0);
+        } else {
+            console.log("No contests to notify about or empty payload received.");
+            await messageAdmin(sock, "No contests found or empty payload received");
+            process.exit(0);
         }
-    });
-
-    // sock.ev.on('messages.update', (messageInfo) => {
-    //     console.log("Chat updated:", messageInfo);
-    // });
-
-    // sock.ev.on('messages.upsert', (messageInfo) => {
-    //     console.log("Some Change:", messageInfo?.messages);
-    // });
-
-    sock.ev.on('creds.update', saveCreds);
+    } catch (error) {
+        await messageAdmin(sock, `Error in app.js: ${error.message}`);
+        process.exit(1);
+    }
 }
 
-connectionLogic();
+connectionLogic(moveFurther);
+
+export { connectionLogic };
