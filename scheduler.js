@@ -41,7 +41,7 @@ export function scheduleContestNotifications() {
 }
 
 export function scheduleContestReminders() {
-    const reminderJob = scheduleJob('contest-reminders', '* */5 * * * *', async () => {
+    const reminderJob = scheduleJob('contest-reminders', '*/5 * * * *', async () => {
         console.log(`Checking for upcoming contest reminders at ${new Date().toLocaleString()}`);
         
         try {
