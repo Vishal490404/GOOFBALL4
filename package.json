@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node app.js"
+    "dev": "node app.js",
+    "start": "node startService.js",
+    "contest": "node runContestNotifications.js"
   },
   "author": "",
   "license": "ISC",
@@ -17,6 +19,8 @@
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "node-cache": "^5.1.2",
+    "node-cron": "^4.2.0",
+    "node-schedule": "^2.1.1",
     "nodemon": "^3.1.7",
     "pino": "^9.7.0",
     "qrcode": "^1.5.4"

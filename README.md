@@ -1,79 +1,87 @@
-# Coding Contest WhatsApp Notifier
+# WhatsApp Coding Contest Notification Bot
 
-This project is a WhatsApp bot that notifies users about upcoming coding contests from various platforms. It fetches contest data from clist.by API and sends notifications to specified WhatsApp numbers or groups.
+A Node.js application that sends automated WhatsApp notifications about upcoming coding contests from various platforms. It helps competitive programmers stay updated with contest schedules and never miss a coding competition.
 
 ## Features
 
-- Fetches coding contest data from clist.by
-- Sends daily updates for today's and tomorrow's contests
-- Sends reminders 30 minutes before each contest
-- Supports multiple coding platforms (Codeforces, CodeChef, LeetCode, AtCoder, and more)
-- Works with Windows Task Scheduler for automated reminders
-- Easily manage WhatsApp groups using group IDs
+- **Contest Notifications**: Automatically sends daily notifications about upcoming coding contests
+- **WhatsApp Integration**: Uses Baileys library to interact with WhatsApp Web
+- **Reminder System**: Sets reminders for contests
+- **Scheduled Jobs**: Uses node-schedule to run contest notifications at specified times
 
-## Setup
+## Prerequisites
 
-1. Clone the repository
+- Node.js (v14 or newer)
+- NPM (v6 or newer)
+- A WhatsApp account for the bot
+- API keys for coding contest platforms (if applicable)
+
+## Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/Vishal490404/GOOFBALL4.git
+   cd GOOFBALL4
+   ```
+
 2. Install dependencies:
 
    ```bash
    npm install
    ```
 
-3. Create a `.env` file based on `.env.example`:
+3. Create a `.env` file in the root directory with the following variables:
 
    ```env
    CLIST_USERNAME=your_username
    CLIST_API_KEY=your_api_key
-   HELP_NUMBER=your_number@s.whatsapp.net
+   CLIST_API_URL=https://api.example.com
+   HELP_NUMBER=your_whatsapp_number
    ```
 
-4. Run the application:
+## Usage
 
-   ```bash
-   npm run dev
-   ```
+### Starting the Service
 
-5. Scan the QR code with WhatsApp to authenticate
+To start the WhatsApp notification service:
 
-## Running Automatically
+```bash
+npm start
+```
 
-### Daily Updates
+This will launch the service through `startService.js` and initiate the WhatsApp connection.
 
-1. Set up a Windows Task Scheduler task to run `runTask.bat` daily at your preferred time.
+### Running Contest Notifications
 
-### Contest Reminders
+To manually trigger contest notifications:
 
-The application automatically creates reminder tasks when it runs.
+```bash
+npm run contest
+```
 
-## Files
+This executes `runContestNotifications.js` to fetch and send contest information.
 
-- `app.js` - Main application that sends daily contest updates
-- `getContestDetails.js` - Fetches and processes contest data
-- `reminderService.js` - Creates reminder entries and schedules tasks
-- `sendReminder.js` - Sends reminders before contests
-- `ids.js` - Contains WhatsApp IDs to send messages to
-- `config.js` - Application configuration
-- `utility.js` - Common utility functions
-- `getGID.js` - Utility to fetch WhatsApp group IDs and information
-- `runReminder.bat` - Batch file to run reminders
-- `runTask.bat` - Batch file to run daily tasks
+### Development Mode
 
-## WhatsApp Integration
+For development with auto-restart:
 
-The application uses the [@whiskeysockets/baileys](https://github.com/WhiskeySockets/Baileys) library for WhatsApp Web API integration. Key features include:
+```bash
+npm run dev
+```
 
-- **Authentication**: QR code-based login with session persistence
-- **Group Management**: Fetch and manage WhatsApp groups
-- **Automated Messaging**: Send scheduled messages to groups or individuals
+## Project Structure
 
-## Troubleshooting
+- `app.js` - Main application logic and WhatsApp connection handling
+- `config.js` - Configuration settings and environment variables
+- `getContestDetails.js` - Fetches contest information from APIs
+- `reminderService.js` - Manages contest reminders
+- `scheduler.js` - Handles scheduled jobs for notifications
+- `sendReminder.js` - Sends reminder messages via WhatsApp
+- `startService.js` - Entry point for the service
+- `utility.js` - Utility functions
+- `runContestNotifications.js` - Script to manually trigger notifications
 
-- **QR Code Issues**: If authentication fails, delete the `auth_info_baileys` folder and restart the application
-- **Task Scheduler**: Ensure the working directory is set correctly in task settings
-- **Reminders Not Working**: Check the `reminderFile.txt` file for any issues with scheduled reminders
+## Authentication
 
-## Contributing
-
-Feel free to submit issues or pull requests to improve the project.
-
+On first run, the application will generate a QR code. Scan this code with your WhatsApp to authenticate the session. Authentication data is stored in the `auth_info_baileys` directory for subsequent runs.

@@ -3,52 +3,89 @@ import { IDS } from "./ids.js";
 import config from "./config.js";
 import { connectionLogic } from "./app.js";
 import { messageAdmin } from './utility.js';
+import { groupCache } from './app.js';
+import { getWhatsAppSocket } from './scheduler.js';
 
-async function getReminders(sock) {
+export async function getReminders() {
+    const sock = getWhatsAppSocket();
+    
+    if (!sock) {
+        console.log("No active WhatsApp connection found. Creating a temporary connection...");
+        return connectionLogic(getRemindersWithSocket);
+    }
+    
+    return getRemindersWithSocket(sock);
+}
+
+async function getRemindersWithSocket(sock) {
     const ids = IDS;
     try {
-
         const remindersData = await fs.readFile(config.paths.reminderFile, 'utf-8');
-        
+
         if (!remindersData.trim()) {
             console.log("No reminders found in file.");
-            process.exit(0);
+            return;
         }
-        
+
         const remindersJson = `[${remindersData.replace(/,\s*$/, '')}]`;
         const reminders = JSON.parse(remindersJson);
-        
+
         const currentTime = new Date();
         currentTime.setTime(currentTime.getTime() + config.time.utcOffset);
-        
-        const timeWindow = 5 * 60 * 1000; 
+
+        const timeWindow = 5 * 60 * 1000;
         const twoMinsLater = new Date(currentTime.getTime() + timeWindow);
         const twoMinsBefore = new Date(currentTime.getTime() - timeWindow);
-        
+        console.log(twoMinsBefore, twoMinsLater);
+        // for(let i = 0; i < reminders.length; i++){
+        //     console.log(new Date(reminders[i].time));
+            
+        // }
         const remindersToSend = reminders.filter(reminder => {
             const reminderTime = new Date(reminder.time);
+            console.log(reminderTime)
+            
             return reminderTime >= twoMinsBefore && reminderTime <= twoMinsLater;
         });
-        console.log(remindersToSend);
-        
+        // console.log(remindersToSend);
+
         if (remindersToSend.length > 0) {
             let message = `🛑 *REMINDER* 🛑\n\n`;
 
             remindersToSend.forEach(element => {
                 message += element.message;
             });
-
-            // await Promise.all(ids.map(id => sock.sendMessage(id, { text: message })));
             for (const id of ids) {
-                try {
-                    await sock.sendMessage(id, { text: message });
-                    console.log(`Reminder sent to: ${id}`);
-                } catch (error) {
-                    console.error(`Failed to send reminder to: ${id}`, error);
+                if (id.endsWith('@g.us')) {
+                    const metadata = await sock.groupMetadata(id)
+                    groupCache.set(id, metadata)
                 }
             }
-            console.log("Reminder Sent Successfully");
-            const remainingReminders = reminders.filter(reminder => 
+            // console.log(remindersToSend);
+            
+            // await Promise.all(ids.map(id => sock.sendMessage(id, { text: message })));
+            let successCount = 0;
+            for (const id of ids) {
+                try {
+                    const isGroup = id.endsWith('@g.us');
+                    const groupInfo = isGroup ? groupCache.get(id) : null;
+                    await sock.sendMessage(id, { text: message });
+                    if (isGroup && groupInfo) {
+                        console.log(`Message sent to group: ${groupInfo.subject} (${id})`);
+                    } else {
+                        console.log(`Message sent to: ${id}`);
+                    }
+                    successCount++;
+                } catch (error) {
+                    console.error(`Failed to send message to: ${id}`, error);
+                }
+            }
+            if (successCount > 0) {
+                console.log(`Contest updates sent successfully to ${successCount} recipients.`);
+            } else {
+                await messageAdmin(sock, "Failed to send messages to any recipients");
+            }
+            const remainingReminders = reminders.filter(reminder =>
                 !remindersToSend.includes(reminder)
             );
 
@@ -60,11 +97,9 @@ async function getReminders(sock) {
             } else {
                 await fs.writeFile(config.paths.reminderFile, '', 'utf-8');
             }
-            
-            process.exit(0);
+
         } else {
             console.log("No reminders due within the next 5 minutes.");
-            process.exit(0);
         }
     } catch (error) {
         console.error("Error processing reminders:", error);
@@ -72,8 +107,8 @@ async function getReminders(sock) {
     }
 }
 
-connectionLogic(getReminders(sock))
-// getReminders()
+
+export { getRemindersWithSocket };
 
 
 

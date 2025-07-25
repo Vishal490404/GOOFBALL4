@@ -10,7 +10,7 @@ import https from 'https';
 
 const logger = pino({ level: 'error' });
 
-const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false })
+export const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false })
 
 async function connectionLogic(functionToExecute) {
     try {
@@ -56,7 +56,7 @@ async function connectionLogic(functionToExecute) {
                 } else if (statusCode === DisconnectReason.connectionReplaced) {
                     console.log("Connection Replaced, please restart the application.");
                     await messageAdmin(sock, "Connection replaced. Please restart the application.");
-                    process.exit(1);
+                     
                 } else if (statusCode === DisconnectReason.restartRequired) {
                     console.log("Restart required, restarting...");
                     connectionLogic(functionToExecute);
@@ -80,13 +80,9 @@ async function connectionLogic(functionToExecute) {
                 console.log("Waiting for new messages...");
             }
         });
-
-        // Messaging history event
         sock.ev.on('messaging-history.set', ({ chats, contacts, messages, isLatest }) => {
             console.log(`Received ${chats.length} chats, ${contacts.length} contacts, ${messages.length} messages (latest: ${isLatest})`);
         });
-
-        // Status messages handling
         sock.ev.on('messages.upsert', async ({ type, messages }) => {
             if (!messages) return;
             for (let message of messages) {
@@ -101,7 +97,7 @@ async function connectionLogic(functionToExecute) {
         sock.ev.on('creds.update', saveCreds);
     } catch (error) {
         console.error("Error in connection logic:", error);
-        process.exit(1);
+         
     }
 }
 
@@ -139,18 +135,18 @@ async function moveFurther(sock) {
             } else {
                 await messageAdmin(sock, "Failed to send messages to any recipients");
             }
-            process.exit(0);
+             
         } else {
             console.log("No contests to notify about or empty payload received.");
             await messageAdmin(sock, "No contests found or empty payload received");
-            process.exit(0);
+             
         }
     } catch (error) {
         await messageAdmin(sock, `Error in app.js: ${error.message}`);
-        process.exit(1);
+         
     }
 }
 
-connectionLogic(moveFurther);
 
-export { connectionLogic };
+
+export { connectionLogic, moveFurther };

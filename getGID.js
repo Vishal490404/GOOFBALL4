@@ -1,11 +1,8 @@
 import { DisconnectReason, useMultiFileAuthState, makeWASocket } from "@whiskeysockets/baileys";
-import readline from 'readline';
 
 
 async function connectionLogic() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
-    
-
     const sock = makeWASocket({
         auth: state,
     });
@@ -29,26 +26,6 @@ async function connectionLogic() {
             }
         } else if (connection === 'open') {
             console.log("Connected!");
-            // try {
-            //     const response = await sock.groupFetchAllParticipating();
-            //     const rl = readline.createInterface({
-            //         input: process.stdin,
-            //         output: process.stdout
-            //     });
-            //     console.log(response);
-                
-            //     rl.question('Enter the group name: ', (inputName) => {
-            //         const group = Object.values(response).find(g => g.subject === inputName);
-            //         if (group) {
-            //             console.log(group);
-            //         } else {
-            //             console.log('Group not found.');
-            //         }
-            //         rl.close();
-            //     });
-            // } catch (error) {
-            //     return error;
-            // }
         }
     });
 

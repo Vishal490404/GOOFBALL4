@@ -3,11 +3,6 @@ import { setReminder } from "./reminderService.js";
 import { checkFileAndDelete, messageAdmin } from "./utility.js";
 import config from "./config.js";
 
-/**
- * Formats contest data into a readable message and handles reminders
- * @param {Array} filteredData Array of contest objects
- * @returns {string} Formatted message to send via WhatsApp
- */
 function createMessage(filteredData) {
     const todayDate = new Date();
     const tomorrowDate = new Date(todayDate);
@@ -27,11 +22,6 @@ function createMessage(filteredData) {
     });
     const dayOfWeekTomo = tomorrowDate.toLocaleDateString("en-IN", { weekday: "long" });
 
-    /**
-     * Format a single contest for display
-     * @param {Object} contest The contest data object
-     * @returns {string} Formatted contest string
-     */
     const formatContest = (contest) => {
         const startTime = new Date(new Date(contest.start).getTime() + config.time.utcOffset)
             .toLocaleTimeString("en-IN", {
@@ -39,10 +29,18 @@ function createMessage(filteredData) {
                 minute: "2-digit",
             });
         
-        // Get platform icon from config or use default
+        const durationHours = Math.floor(contest.duration / 3600);
+        const durationMinutes = Math.floor((contest.duration % 3600) / 60);
+        const durationStr = durationHours > 0 
+            ? `${durationHours}h${durationMinutes > 0 ? ` ${durationMinutes}m` : ''}`
+            : `${durationMinutes}m`;
+        
         const platformIcon = config.platforms.icons[contest.host] || config.platforms.icons.default;
         
-        return ` ${platformIcon} *${contest.event}*\n ⏰ ${startTime}\n 🔗 [${contest.host}](${contest.href})\n\n`;
+        return `${platformIcon} *${contest.event}*
+⏰ *Time:* ${startTime}
+⏳ *Duration:* ${durationStr}
+🔗 ${contest.href}\n\n`;
     };
 
     const todayContests = filteredData.filter((obj) => {
@@ -62,8 +60,7 @@ function createMessage(filteredData) {
     });
 
     let messageToSend = `
-*Hello Chefs!👨‍🍳*
-Here are the daily contest updates:
+*✨ Hello Chefs! 👨‍🍳 ✨*
 
 *Today* (${dayOfWeek}, ${formattedDate}):
 `;
@@ -92,7 +89,7 @@ Here are the daily contest updates:
     }
 
     messageToSend += "────────────────\n";
-    messageToSend += "*Happy Coding!*";
+    messageToSend += "*Happy Coding and may your submissions be Accepted!😉*";
 
     return messageToSend;
 }
@@ -101,12 +98,6 @@ Here are the daily contest updates:
 
 // createMessage()
 
-
-/**
- * Fetches contest data from the API and processes it
- * @param {Object} sock WhatsApp socket connection
- * @returns {Promise<string>} The message to send or null if error
- */
 export async function fetchData(sock) {
     try {
         const start = new Date();
