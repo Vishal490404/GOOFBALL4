@@ -1,4 +1,4 @@
-import { DisconnectReason, useMultiFileAuthState, makeWASocket, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } from "@whiskeysockets/baileys";
+import { DisconnectReason, useMultiFileAuthState, makeWASocket, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } from '@whiskeysockets/baileys';
 import { fetchData } from "./getContestDetails.js";
 import { IDS } from "./ids.js";
 import pino from 'pino';
@@ -7,10 +7,24 @@ import config from './config.js';
 import { messageAdmin } from './utility.js';
 import NodeCache from "node-cache";
 import https from 'https';
+import path from 'path';
+import { Memory_Store } from './memory-store.js';
 
 const logger = pino({ level: 'error' });
 
-export const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false })
+export const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false });
+
+// Use the imported Memory_Store as the message store
+export const store = Memory_Store;
+
+// Read from existing store file if it exists
+const storeFilePath = path.join(config.paths.root, 'baileys_store.json');
+store.readFromFile(storeFilePath);
+
+// Save the state to a file every 10 seconds
+setInterval(() => {
+    store.writeToFile(storeFilePath);
+}, 10_000);
 
 async function connectionLogic(functionToExecute) {
     try {
@@ -31,7 +45,20 @@ async function connectionLogic(functionToExecute) {
                 httpsAgent: new https.Agent({
                     rejectUnauthorized: false
                 })
-            }
+            },
+            syncFullHistory: true
+        });
+        
+        // Bind the store to the socket events
+        store.bind(sock.ev);
+
+        // Now you can access store data (chats, contacts, messages) anytime
+        sock.ev.on('chats.upsert', () => {
+            console.log(`Got ${store.chats.all().length} chats`);
+        });
+
+        sock.ev.on('contacts.upsert', () => {
+            console.log(`Got ${Object.values(store.contacts).length} contacts`);
         });
 
         sock.ev.on('connection.update', async (update) => {
@@ -82,13 +109,33 @@ async function connectionLogic(functionToExecute) {
         });
         sock.ev.on('messaging-history.set', ({ chats, contacts, messages, isLatest }) => {
             console.log(`Received ${chats.length} chats, ${contacts.length} contacts, ${messages.length} messages (latest: ${isLatest})`);
+            
+            // You can access stored chats and contacts
+            console.log(`Total chats in store: ${store.chats.all().length}`);
+            console.log(`Total contacts in store: ${Object.values(store.contacts).length}`);
         });
+        
         sock.ev.on('messages.upsert', async ({ type, messages }) => {
             if (!messages) return;
+            
+            console.log(`Received ${messages.length} new messages of type: ${type}`);
+            
             for (let message of messages) {
+                // Store has already saved these messages automatically
                 if (message.key && message.key.remoteJid === 'status@broadcast') {
                     if (message.message?.protocolMessage) return;
                     console.log(`Reading status from ${message.pushName || 'unknown'}`);
+                    await sock.readMessages([message.key]);
+                } else if (type === 'notify') {
+                    // You can use the message store to check previous messages from this sender
+                    const jid = message.key.remoteJid;
+                    const chatMessages = store.messages[jid];
+                    
+                    if (chatMessages) {
+                        console.log(`This chat has ${chatMessages.length} stored messages`);
+                    }
+                    
+                    // Mark the message as read
                     await sock.readMessages([message.key]);
                 }
             }
