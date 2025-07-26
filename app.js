@@ -43,7 +43,6 @@ async function connectionLogic(functionToExecute) {
                     rejectUnauthorized: false
                 })
             },
-            readIncomingMessages: false,
             syncFullHistory: true
         });
         
@@ -105,6 +104,7 @@ async function connectionLogic(functionToExecute) {
         });
         sock.ev.on('messaging-history.set', ({ chats, contacts, messages, isLatest }) => {
             console.log(`Received ${chats.length} chats, ${contacts.length} contacts, ${messages.length} messages (latest: ${isLatest})`);
+            
             console.log(`Total chats in store: ${store.chats.all().length}`);
             console.log(`Total contacts in store: ${Object.values(store.contacts).length}`);
         });
@@ -125,7 +125,6 @@ async function connectionLogic(functionToExecute) {
                     if (chatMessages) {
                         console.log(`This chat has ${chatMessages.length} stored messages`);
                     }
-                    
                 }
             }
         });

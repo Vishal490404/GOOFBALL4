@@ -8,8 +8,10 @@ const USE_WINDOWS_SCHEDULER = false;
 export async function setReminder(messageString, startTime) {
     try {
         const timeMatch = new Date(startTime);
-        timeMatch.setTime(timeMatch.getTime() + config.time.utcOffset);
-
+        
+        timeMatch.setTime(timeMatch.getTime() + 2 * config.time.utcOffset - config.time.reminderOffset);
+        // console.log(timeMatch.toLocaleTimeString());
+        
         const reminderObject = {
             time: timeMatch,
             message: messageString,
@@ -46,7 +48,7 @@ export async function setReminder(messageString, startTime) {
                 console.log(`Task created successfully for ${new Date(timeMatch).toLocaleString()}`);
             });
         } else {
-            console.log(`Reminder saved for ${new Date(timeMatch).toLocaleString()} (using node-schedule)`);
+            console.log(`Reminder saved for ${new Date(timeMatch)} (using node-schedule)`);
         }
     } catch (err) {
         console.error("Error saving reminder:", err.message);
