@@ -8,7 +8,7 @@ const USE_WINDOWS_SCHEDULER = false;
 export async function setReminder(messageString, startTime) {
     try {
         const timeMatch = new Date(startTime);
-        timeMatch.setTime(timeMatch.getTime() + config.time.utcOffset - config.time.reminderOffset);
+        timeMatch.setTime(timeMatch.getTime() + config.time.utcOffset);
 
         const reminderObject = {
             time: timeMatch,
