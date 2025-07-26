@@ -33,7 +33,7 @@ async function getRemindersWithSocket(sock) {
         const currentTime = new Date();
         currentTime.setTime(currentTime.getTime() + config.time.utcOffset);
 
-        const timeWindow = 5 * 60 * 1000;
+        const timeWindow = 10 * 60 * 1000;
         const twoMinsLater = new Date(currentTime.getTime() + timeWindow);
         const twoMinsBefore = new Date(currentTime.getTime() - timeWindow);
         console.log(twoMinsBefore, twoMinsLater);

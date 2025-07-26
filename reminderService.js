@@ -9,7 +9,7 @@ export async function setReminder(messageString, startTime) {
     try {
         const timeMatch = new Date(startTime);
         
-        timeMatch.setTime(timeMatch.getTime() + 2 * config.time.utcOffset - config.time.reminderOffset);
+        timeMatch.setTime(timeMatch.getTime() + 2 * config.time.utcOffset - config.time.reminderOffset + 5 * 60 * 1000);
         // console.log(timeMatch.toLocaleTimeString());
         
         const reminderObject = {
