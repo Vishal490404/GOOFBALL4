@@ -17,7 +17,23 @@ export async function initializeWhatsAppConnection() {
 }
 
 export function getWhatsAppSocket() {
+    if (!whatsAppSocket) {
+        console.log("Warning: WhatsApp socket is null, connection may have been lost");
+    }
     return whatsAppSocket;
+}
+
+export function startConnectionHealthCheck() {
+    setInterval(async () => {
+        console.log("Performing WhatsApp connection health check...");
+        
+        if (!whatsAppSocket) {
+            console.log("WhatsApp socket is null, attempting to reconnect...");
+            await initializeWhatsAppConnection();
+        } else {
+            console.log("WhatsApp connection is active");
+        }
+    }, 5 * 60 * 1000);
 }
 
 export function scheduleContestNotifications() {
@@ -72,6 +88,7 @@ export function initializeScheduler() {
     initializeWhatsAppConnection().then(() => {
         scheduleContestNotifications();
         scheduleContestReminders();
+        startConnectionHealthCheck();
         
         console.log("Scheduling system initialized successfully");
     }).catch(error => {

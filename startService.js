@@ -4,6 +4,14 @@ console.log(`Service started at: ${new Date().toLocaleString()}`);
 
 initializeScheduler();
 
+const heartbeatInterval = 5 * 60 * 1000; // 5 mins
+setInterval(() => {
+    console.log(`Heartbeat: Service still running at ${new Date().toLocaleString()}`);
+    process.stdout.write('');
+}, heartbeatInterval);
+
+setInterval(() => {}, 60000);
+
 process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
 });
