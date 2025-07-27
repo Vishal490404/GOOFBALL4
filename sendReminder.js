@@ -37,7 +37,7 @@ async function getRemindersWithSocket(sock) {
         const twoMinsLater = new Date(currentTime.getTime() + timeWindow);
         // don't check for last 30 mins no need
         // const twoMinsBefore = new Date(currentTime.getTime() - timeWindow);
-        console.log(twoMinsBefore, twoMinsLater);
+        console.log(twoMinsLater);
         // for(let i = 0; i < reminders.length; i++){
         //     console.log(new Date(reminders[i].time));
             
