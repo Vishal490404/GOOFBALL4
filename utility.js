@@ -29,4 +29,9 @@ async function checkFileAndDelete() {
     }
 }
 
-export { messageAdmin, checkFileAndDelete }
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export { messageAdmin, checkFileAndDelete,sleep }

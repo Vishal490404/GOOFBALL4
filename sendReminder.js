@@ -2,25 +2,40 @@ import fs from 'fs/promises';
 import { IDS } from "./ids.js";
 import config from "./config.js";
 import { connectionLogic } from "./app.js";
-import { messageAdmin } from './utility.js';
+import { messageAdmin, sleep } from './utility.js';
 import { groupCache } from './app.js';
 import { getWhatsAppSocket } from './scheduler.js';
 
 export async function getReminders() {
     const sock = getWhatsAppSocket();
-    
+
     if (!sock) {
         console.log("No active WhatsApp connection found. Creating a temporary connection...");
         return connectionLogic(getRemindersWithSocket);
     }
-    
+
     return getRemindersWithSocket(sock);
 }
 
 async function getRemindersWithSocket(sock) {
     const ids = IDS;
     try {
-        const remindersData = await fs.readFile(config.paths.reminderFile, 'utf-8');
+
+        let remindersData;
+        try {
+            remindersData = await fs.readFile(config.paths.reminderFile, 'utf-8');
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                console.log("Reminder file not found. Maybe no contests today!");
+                return;
+            } else if (error.code === 'EACCES') {
+                console.error("Permission denied accessing reminder file:", config.paths.reminderFile);
+                return messageAdmin(sock, `Error reading reminder file: ${error.message}`);
+            } else {
+                console.error("Error reading reminder file:", error);
+                return messageAdmin(sock, `Error reading reminder file: ${error.message}`);
+            }
+        }
 
         if (!remindersData.trim()) {
             console.log("No reminders found in file.");
@@ -40,12 +55,12 @@ async function getRemindersWithSocket(sock) {
         console.log(twoMinsLater);
         // for(let i = 0; i < reminders.length; i++){
         //     console.log(new Date(reminders[i].time));
-            
+
         // }
         const remindersToSend = reminders.filter(reminder => {
             const reminderTime = new Date(reminder.time);
             console.log(reminderTime)
-            
+
             return reminderTime <= twoMinsLater;
         });
         // console.log(remindersToSend);
@@ -63,7 +78,7 @@ async function getRemindersWithSocket(sock) {
                 }
             }
             // console.log(remindersToSend);
-            
+
             // await Promise.all(ids.map(id => sock.sendMessage(id, { text: message })));
             let successCount = 0;
             for (const id of ids) {
@@ -71,6 +86,7 @@ async function getRemindersWithSocket(sock) {
                     const isGroup = id.endsWith('@g.us');
                     const groupInfo = isGroup ? groupCache.get(id) : null;
                     await sock.sendMessage(id, { text: message });
+                    sleep(10000);
                     if (isGroup && groupInfo) {
                         console.log(`Message sent to group: ${groupInfo.subject} (${id})`);
                     } else {

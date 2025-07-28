@@ -154,6 +154,7 @@ async function moveFurther(sock) {
                     const isGroup = id.endsWith('@g.us');
                     const groupInfo = isGroup ? groupCache.get(id) : null;
                     await sock.sendMessage(id, { text: payload });
+                    sleep(10000);
                     if (isGroup && groupInfo) {
                         console.log(`Message sent to group: ${groupInfo.subject} (${id})`);
                     } else {
