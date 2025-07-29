@@ -4,7 +4,7 @@ import { IDS } from "./ids.js";
 import pino from 'pino';
 import QRCode from 'qrcode';
 import config from './config.js';
-import { messageAdmin } from './utility.js';
+import { messageAdmin, sleep } from './utility.js';
 import NodeCache from "node-cache";
 import https from 'https';
 import path from 'path';
