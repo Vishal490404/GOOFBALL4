@@ -8,20 +8,20 @@ import { messageAdmin, sleep } from './utility.js';
 import NodeCache from "node-cache";
 import https from 'https';
 import path from 'path';
-import { Memory_Store } from './memory-store.js';
+// import { Memory_Store } from './memory-store.js';
 
 const logger = pino({ level: 'error' });
 
 export const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false });
 
-export const store = Memory_Store;
+// export const store = Memory_Store;
 
-const storeFilePath = path.join(config.paths.root, 'baileys_store.json');
-store.readFromFile(storeFilePath);
+// const storeFilePath = path.join(config.paths.root, 'baileys_store.json');
+// store.readFromFile(storeFilePath);
 
-setInterval(() => {
-    store.writeToFile(storeFilePath);
-}, 10_000);
+// setInterval(() => {
+//     store.writeToFile(storeFilePath);
+// }, 10_000);
 
 async function connectionLogic(functionToExecute) {
     try {
@@ -46,15 +46,15 @@ async function connectionLogic(functionToExecute) {
             syncFullHistory: true
         });
         
-        store.bind(sock.ev);
+        // store.bind(sock.ev);
 
-        sock.ev.on('chats.upsert', () => {
-            console.log(`Got ${store.chats.all().length} chats`);
-        });
+        // sock.ev.on('chats.upsert', () => {
+        //     console.log(`Got ${store.chats.all().length} chats`);
+        // });
 
-        sock.ev.on('contacts.upsert', () => {
-            console.log(`Got ${Object.values(store.contacts).length} contacts`);
-        });
+        // sock.ev.on('contacts.upsert', () => {
+        //     console.log(`Got ${Object.values(store.contacts).length} contacts`);
+        // });
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr, receivedPendingNotifications } = update;
@@ -105,8 +105,8 @@ async function connectionLogic(functionToExecute) {
         sock.ev.on('messaging-history.set', ({ chats, contacts, messages, isLatest }) => {
             console.log(`Received ${chats.length} chats, ${contacts.length} contacts, ${messages.length} messages (latest: ${isLatest})`);
             
-            console.log(`Total chats in store: ${store.chats.all().length}`);
-            console.log(`Total contacts in store: ${Object.values(store.contacts).length}`);
+            // console.log(`Total chats in store: ${store.chats.all().length}`);
+            // console.log(`Total contacts in store: ${Object.values(store.contacts).length}`);
         });
         
         sock.ev.on('messages.upsert', async ({ type, messages }) => {
@@ -120,11 +120,11 @@ async function connectionLogic(functionToExecute) {
                     console.log(`Received status from ${message.pushName || 'unknown'}`);
                 } else if (type === 'notify') {
                     const jid = message.key.remoteJid;
-                    const chatMessages = store.messages[jid];
+                    // const chatMessages = store.messages[jid];
                     
-                    if (chatMessages) {
-                        console.log(`This chat has ${chatMessages.length} stored messages`);
-                    }
+                //     if (chatMessages) {
+                //         console.log(`This chat has ${chatMessages.length} stored messages`);
+                //     }
                 }
             }
         });
