@@ -1,168 +1,196 @@
-import axios from "axios";
+import ical from "node-ical";
 import { setReminder } from "./reminderService.js";
 import { checkFileAndDelete, messageAdmin } from "./utility.js";
 import config from "./config.js";
 
-function createMessage(filteredData) {
+const CALENDAR_URL =
+"https://calendar.google.com/calendar/ical/c_9b0d1c817227b09044b85582eb3c10e6a7f4be060a77d15c39bf1fa6f0603d85%40group.calendar.google.com/public/basic.ics";
+
+function detectPlatform(name) {
+    const n = name.toLowerCase();
+    if (n.includes("codeforces")) return "codeforces.com";
+    if (n.includes("leetcode")) return "leetcode.com";
+    if (n.includes("codechef")) return "codechef.com";
+    if (n.includes("atcoder")) return "atcoder.jp";
+    return "unknown";
+}
+
+function extractLink(event) {
+
+    if (event.url) return event.url;
+
+    if (event.description) {
+        const match = event.description.match(/https?:\/\/[^\s]+/);
+        if (match) return match[0];
+    }
+
+    return "";
+}
+
+function formatDate(date) {
+
+    return date.toLocaleDateString("en-IN", {
+        weekday: "long",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        timeZone: "Asia/Kolkata"
+    });
+
+}
+
+function formatContest(contest) {
+
+    const startTime = new Date(contest.start).toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Kolkata"
+    });
+
+    const durationHours = Math.floor(contest.duration / 3600);
+    const durationMinutes = Math.floor((contest.duration % 3600) / 60);
+
+    const durationStr =
+        durationHours > 0
+            ? durationHours + "h" + (durationMinutes > 0 ? " " + durationMinutes + "m" : "")
+            : durationMinutes + "m";
+
+    const platformIcon =
+        config.platforms.icons[contest.host] || config.platforms.icons.default;
+
+    return (
+        platformIcon + " *" + contest.event + "*\n" +
+        "⏰ *Time:* " + startTime.toLowerCase() + "\n" +
+        "⏳ *Duration:* " + durationStr + "\n" +
+        "🔗 " + contest.href + "\n\n"
+    );
+}
+
+function createMessage(contests) {
+
     const todayDate = new Date();
     const tomorrowDate = new Date(todayDate);
-    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-    
-    const formattedDate = todayDate.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric"
-    });
-    const dayOfWeek = todayDate.toLocaleDateString("en-IN", { weekday: "long" });
-    
-    const formattedDateTomo = tomorrowDate.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric"
-    });
-    const dayOfWeekTomo = tomorrowDate.toLocaleDateString("en-IN", { weekday: "long" });
+    tomorrowDate.setDate(todayDate.getDate() + 1);
 
-    const formatContest = (contest) => {
-        const startTime = new Date(new Date(contest.start).getTime() + config.time.utcOffset)
-            .toLocaleTimeString("en-IN", {
-                hour: "2-digit",
-                minute: "2-digit",
-            });
-        
-        const durationHours = Math.floor(contest.duration / 3600);
-        const durationMinutes = Math.floor((contest.duration % 3600) / 60);
-        const durationStr = durationHours > 0 
-            ? `${durationHours}h${durationMinutes > 0 ? ` ${durationMinutes}m` : ''}`
-            : `${durationMinutes}m`;
-        
-        const platformIcon = config.platforms.icons[contest.host] || config.platforms.icons.default;
-        
-        return `${platformIcon} *${contest.event}*
-⏰ *Time:* ${startTime}
-⏳ *Duration:* ${durationStr}
-🔗 ${contest.href}\n\n`;
-    };
+    const todayContests = contests.filter((c) => {
 
-    const todayContests = filteredData.filter((obj) => {
-        const contestDate = new Date(obj.start);
-        return todayDate.getDate() === contestDate.getDate() &&
-               todayDate.getMonth() === contestDate.getMonth() &&
-               todayDate.getFullYear() === contestDate.getFullYear();
+        const d = new Date(c.start);
+
+        return (
+            d.getDate() === todayDate.getDate() &&
+            d.getMonth() === todayDate.getMonth() &&
+            d.getFullYear() === todayDate.getFullYear()
+        );
+
     });
 
-    const tomorrowContests = filteredData.filter((obj) => {
-        const contestDate = new Date(obj.start);
-        const tomorrow = new Date(todayDate);
-        tomorrow.setDate(todayDate.getDate() + 1);
-        return tomorrow.getDate() === contestDate.getDate() &&
-               tomorrow.getMonth() === contestDate.getMonth() &&
-               tomorrow.getFullYear() === contestDate.getFullYear();
+    const tomorrowContests = contests.filter((c) => {
+
+        const d = new Date(c.start);
+
+        return (
+            d.getDate() === tomorrowDate.getDate() &&
+            d.getMonth() === tomorrowDate.getMonth() &&
+            d.getFullYear() === tomorrowDate.getFullYear()
+        );
+
     });
 
-    let messageToSend = `
-*✨ Hello Chefs! 👨‍🍳 ✨*
+    let message = `*✨ Hello Chefs! 👨‍🍳 ✨*\n\n`;
 
-*Today* (${dayOfWeek}, ${formattedDate}):
-`;
+    message += `*Today* (${formatDate(todayDate)}):\n`;
 
     if (todayContests.length > 0) {
-        todayContests.forEach(contest => {
-            const createdMessage = formatContest(contest);
-            setReminder(createdMessage, contest.start).catch(err => 
-                console.error(`Failed to set reminder: ${err.message}`)
-            );
-            messageToSend += createdMessage;
+
+        todayContests.forEach((contest) => {
+
+            const contestMessage = formatContest(contest);
+
+            setReminder(contestMessage, contest.start)
+              .catch(err => console.error("Reminder error:", err.message));
+
+            message += contestMessage;
+
         });
+
     } else {
-        messageToSend += "No contests today. Rest up!🍹 And don't forget to practice \n\n";
+
+        message += "No contests today. Rest up!🍹 And don't forget to practice\n\n";
+
     }
-    messageToSend += '────────────────\n\n';
-    messageToSend += `*Tomorrow* (${dayOfWeekTomo}, ${formattedDateTomo}):
-`;
+
+    message += "────────────────\n\n";
+
+    message += `*Tomorrow* (${formatDate(tomorrowDate)}):\n`;
 
     if (tomorrowContests.length > 0) {
-        tomorrowContests.forEach(contest => {
-            messageToSend += formatContest(contest);
+
+        tomorrowContests.forEach((contest) => {
+
+            message += formatContest(contest);
+
         });
+
     } else {
-        messageToSend += "No contests tomorrow. Rest up!🍬 And don't forget to practice\n";
+
+        message += "No contests tomorrow. Rest up!🍹 And don't forget to practice\n";
+
     }
 
-    messageToSend += "────────────────\n";
-    messageToSend += "*Happy Coding and may your submissions be Accepted!😉*";
+    message += "\n────────────────\n";
+    message += "*Happy Coding and may your submissions be Accepted!😉*";
 
-    return messageToSend;
+    return message;
+
 }
-// const ans = await fetchData();
-// console.log(ans);
-
-// createMessage()
 
 export async function fetchData(sock) {
+
     try {
-        const start = new Date();
-        // console.log(start)
-        start.setDate(start.getDate());
 
-        start.setHours(5.5, 30, 0, 0);
-        // console.log(now)
-        const startString = start.toISOString();
-        // console.log(startString)
-        
-        const url = `${config.api.clist.baseUrl}?username=${config.api.clist.username}&api_key=${config.api.clist.apiKey}&start__gt=${startString}&order_by=start`;
-        
-        const response = await axios.get(url);
-        // console.log(response.data.meta);
-        
-        if (response.data.objects.length > 0) {
-            const cleanData = response.data.objects;
-            // console.log(cleanData);
-            
-            // Filter data by host and date range
-            const filteredData = cleanData.filter((obj) => {
-                const startDate = new Date(obj.start);
-                const today = new Date(start);
-                const dayAfterTomorrow = new Date(start);
-                
-                today.setHours(0, 0, 0, 0);
-                dayAfterTomorrow.setHours(23, 59, 59, 999);
-                dayAfterTomorrow.setDate(today.getDate() + 2);
-                
-                startDate.setTime(startDate.getTime() + config.time.utcOffset);
-                
-                return config.platforms.hosts.includes(obj.host) && (startDate < dayAfterTomorrow);
-            });
-            // console.log(filteredData);
-            
-            if (await checkFileAndDelete()) {
-                return createMessage(filteredData);
-            } else {
-                return messageAdmin(sock, "Error clearing reminder file in getContestDetails.js");
+        const events = await ical.async.fromURL(CALENDAR_URL);
+        const contests = [];
+
+        for (const key in events) {
+
+            const event = events[key];
+
+            if (event.type === "VEVENT") {
+
+                const start = new Date(event.start);
+                const end = new Date(event.end);
+
+                contests.push({
+                    event: event.summary,
+                    start: start,
+                    duration: (end - start) / 1000,
+                    href: extractLink(event),
+                    host: detectPlatform(event.summary)
+                });
+
             }
-        } else {
-            console.log("No contests found for the next two days.");
-            return createMessage([]);
-        }
-    } catch (error) {
-        // console.error("Error fetching contest data:", error);
-        return messageAdmin(sock, `Error fetching contest data: ${error.message}`);
-    }
-}
 
-// fetchData()
-// API response example
-// {
-//     duration: 10800,
-//     end: '2024-11-30T17:35:00',
-//     event: 'Rayan Programming Contest 2024 - Selection (Codeforces Round 989, Div. 1 + Div. 2)',     
-//     host: 'codeforces.com',
-//     href: 'https://codeforces.com/contests/2034',
-//     id: 54832948,
-//     n_problems: null,
-//     n_statistics: null,
-//     parsed_at: null,
-//     problems: null,
-//     resource: 'codeforces.com',
-//     resource_id: 1,
-//     start: '2024-11-30T14:35:00'
-//   }
+        }
+
+        contests.sort((a, b) => new Date(a.start) - new Date(b.start));
+
+        if (await checkFileAndDelete()) {
+
+            return createMessage(contests);
+
+        } else {
+
+            await messageAdmin(sock, "Error clearing reminder file");
+            return "";
+
+        }
+
+    } catch (error) {
+
+        await messageAdmin(sock, "Calendar fetch error: " + error.message);
+        return "";
+
+    }
+
+}

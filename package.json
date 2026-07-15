@@ -19,6 +19,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "node-cache": "^5.1.2",
+    "node-ical": "^0.25.4",
     "node-schedule": "^2.1.1",
     "nodemon": "^3.1.7",
     "pino": "^9.7.0",

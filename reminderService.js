@@ -7,51 +7,83 @@ const USE_WINDOWS_SCHEDULER = false;
 
 export async function setReminder(messageString, startTime) {
     try {
-        const timeMatch = new Date(startTime);
-        
-        timeMatch.setTime(timeMatch.getTime() + 2 * config.time.utcOffset - config.time.reminderOffset + 5 * 60 * 1000);
-        // console.log(timeMatch.toLocaleTimeString());
-        
+
+        const contestTime = new Date(startTime);
+
+        // reminder time = contest time - reminder offset
+        const reminderTime = new Date(
+            contestTime.getTime() - config.time.reminderOffset
+        );
+
         const reminderObject = {
-            time: timeMatch,
-            message: messageString,
+            time: reminderTime,
+            message: messageString
         };
 
-        const reminderEntry = JSON.stringify(reminderObject, null, 2) + ',\n';
-        await fs.appendFile(config.paths.reminderFile, reminderEntry);
+        let reminders = [];
+
+        // Read existing reminders safely
+        try {
+            const fileData = await fs.readFile(config.paths.reminderFile, 'utf8');
+            reminders = JSON.parse(fileData);
+        } catch (err) {
+            // If file does not exist or invalid JSON → start fresh
+            reminders = [];
+        }
+
+        // Add new reminder
+        reminders.push(reminderObject);
+
+        // Save back as valid JSON
+        await fs.writeFile(
+            config.paths.reminderFile,
+            JSON.stringify(reminders, null, 2)
+        );
 
         if (USE_WINDOWS_SCHEDULER) {
+
             const schedule = "once";
             const taskCommand = path.join(config.paths.root, "runReminder.bat");
-            const taskName = `Reminder_${timeMatch.getTime()}`;
+            const taskName = `Reminder_${reminderTime.getTime()}`;
 
-            const cronTime = timeMatch.toLocaleTimeString('en-IN', {
+            const cronTime = reminderTime.toLocaleTimeString('en-IN', {
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit',
-                hour12 : false
-            })
+                hour12: false
+            });
 
-            // console.log(cronTime, timeMatch);
-            
-            const schtasksCommand = `schtasks /create /tn "${taskName}" /tr "${taskCommand}" /sc ${schedule} /st ${cronTime} /f`;
+            const schtasksCommand =
+                `schtasks /create /tn "${taskName}" /tr "${taskCommand}" /sc ${schedule} /st ${cronTime} /f`;
 
             exec(schtasksCommand, (error, stdout, stderr) => {
+
                 if (error) {
                     console.error(`Error creating task: ${error}`);
                     return;
                 }
+
                 if (stderr) {
                     console.error(`stderr: ${stderr}`);
                     return;
                 }
-                console.log(`Task created successfully for ${new Date(timeMatch).toLocaleString()}`);
+
+                console.log(`Task created successfully for ${reminderTime.toLocaleString()}`);
+
             });
+
         } else {
-            console.log(`Reminder saved for ${new Date(timeMatch)} (using node-schedule)`);
+
+            console.log(`Reminder saved for ${reminderTime.toLocaleString()} (using scheduler)`);
+
         }
+
     } catch (err) {
+
         console.error("Error saving reminder:", err.message);
         throw err;
+
     }
 }
+
+
