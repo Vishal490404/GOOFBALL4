@@ -1,0 +1,18 @@
+import fs from 'fs/promises';
+import { IDS } from "./ids.js";
+import config from "./config.js";
+import { connectionLogic } from "./app.js";
+import { messageAdmin, sleep } from './utility.js';
+import { groupCache } from './app.js';
+import { getWhatsAppSocket } from './scheduler.js';
+
+export async function getReminders() {
+
+
+const sock = getWhatsAppSocket();
+
+if (!sock) {
+    console.log("No active WhatsApp connection found. Creating temporary connection...");
+    return connectionLogic(getRemindersWithSocket);
+}
+

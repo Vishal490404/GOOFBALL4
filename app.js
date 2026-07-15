@@ -133,12 +133,42 @@ async function connectionLogic(functionToExecute) {
 
 }
 
+async function safeSend(sock, id, payload) {
+
+  let attempts = 0;
+  let sent = false;
+
+  while (!sent && attempts < 3) {
+
+    try {
+
+      await sock.sendMessage(id, { text: payload });
+      sent = true;
+
+    } catch (err) {
+
+      attempts++;
+      console.log(`Retry ${attempts} for ${id}...`);
+      await sleep(4000);
+
+    }
+
+  }
+
+  return sent;
+
+}
+
 async function moveFurther(sock) {
 
   try {
 
     const payload = await fetchData(sock);
-    const ids = IDS;
+
+    const ids = [
+      ...IDS.filter(id => id.endsWith("@g.us")),
+      ...IDS.filter(id => !id.endsWith("@g.us"))
+    ];
 
     for (const id of ids) {
 
@@ -157,14 +187,12 @@ async function moveFurther(sock) {
 
       for (const id of ids) {
 
-        try {
+        const isGroup = id.endsWith("@g.us");
+        const groupInfo = isGroup ? groupCache.get(id) : null;
 
-          const isGroup = id.endsWith("@g.us");
-          const groupInfo = isGroup ? groupCache.get(id) : null;
+        const sent = await safeSend(sock, id, payload);
 
-          await sock.sendMessage(id, { text: payload });
-
-          await sleep(5000);
+        if (sent) {
 
           if (isGroup && groupInfo) {
             console.log(`Message sent to group: ${groupInfo.subject}`);
@@ -174,11 +202,13 @@ async function moveFurther(sock) {
 
           successCount++;
 
-        } catch (error) {
+        } else {
 
-          console.error(`Failed to send message to: ${id}`, error);
+          console.error(`Failed to send message to: ${id}`);
 
         }
+
+        await sleep(5000);
 
       }
 

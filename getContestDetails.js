@@ -7,183 +7,190 @@ const CALENDAR_URL =
 "https://calendar.google.com/calendar/ical/c_9b0d1c817227b09044b85582eb3c10e6a7f4be060a77d15c39bf1fa6f0603d85%40group.calendar.google.com/public/basic.ics";
 
 function detectPlatform(name) {
-const n = name.toLowerCase();
-
-if (n.includes("codeforces")) return "codeforces.com";
-if (n.includes("leetcode")) return "leetcode.com";
-if (n.includes("codechef")) return "codechef.com";
-if (n.includes("atcoder")) return "atcoder.jp";
-
-return "unknown";
+    const n = name.toLowerCase();
+    if (n.includes("codeforces")) return "codeforces.com";
+    if (n.includes("leetcode")) return "leetcode.com";
+    if (n.includes("codechef")) return "codechef.com";
+    if (n.includes("atcoder")) return "atcoder.jp";
+    return "unknown";
 }
 
 function extractLink(event) {
-if (event.url) return event.url;
 
-if (event.description) {
-const match = event.description.match(/https?:\/\/[^\s]+/);
-if (match) return match[0];
+    if (event.url) return event.url;
+
+    if (event.description) {
+        const match = event.description.match(/https?:\/\/[^\s]+/);
+        if (match) return match[0];
+    }
+
+    return "";
 }
 
-return "";
+function formatDate(date) {
+
+    return date.toLocaleDateString("en-IN", {
+        weekday: "long",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        timeZone: "Asia/Kolkata"
+    });
+
+}
+
+function formatContest(contest) {
+
+    const startTime = new Date(contest.start).toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Kolkata"
+    });
+
+    const durationHours = Math.floor(contest.duration / 3600);
+    const durationMinutes = Math.floor((contest.duration % 3600) / 60);
+
+    const durationStr =
+        durationHours > 0
+            ? durationHours + "h" + (durationMinutes > 0 ? " " + durationMinutes + "m" : "")
+            : durationMinutes + "m";
+
+    const platformIcon =
+        config.platforms.icons[contest.host] || config.platforms.icons.default;
+
+    return (
+        platformIcon + " *" + contest.event + "*\n" +
+        "⏰ *Time:* " + startTime.toLowerCase() + "\n" +
+        "⏳ *Duration:* " + durationStr + "\n" +
+        "🔗 " + contest.href + "\n\n"
+    );
 }
 
 function createMessage(contests) {
-const todayDate = new Date();
-const tomorrowDate = new Date(todayDate);
-tomorrowDate.setDate(todayDate.getDate() + 1);
 
-const formattedDate = todayDate.toLocaleDateString("en-IN", {
-day: "2-digit",
-month: "2-digit",
-year: "numeric"
-});
+    const todayDate = new Date();
+    const tomorrowDate = new Date(todayDate);
+    tomorrowDate.setDate(todayDate.getDate() + 1);
 
-const formattedDateTomo = tomorrowDate.toLocaleDateString("en-IN", {
-day: "2-digit",
-month: "2-digit",
-year: "numeric"
-});
+    const todayContests = contests.filter((c) => {
 
-const dayOfWeek = todayDate.toLocaleDateString("en-IN", { weekday: "long" });
-const dayOfWeekTomo = tomorrowDate.toLocaleDateString("en-IN", {
-weekday: "long"
-});
+        const d = new Date(c.start);
 
-const formatContest = (contest) => {
-const startTime = new Date(contest.start).toLocaleTimeString("en-IN", {
-hour: "2-digit",
-minute: "2-digit"
-});
+        return (
+            d.getDate() === todayDate.getDate() &&
+            d.getMonth() === todayDate.getMonth() &&
+            d.getFullYear() === todayDate.getFullYear()
+        );
 
+    });
 
-const durationHours = Math.floor(contest.duration / 3600);
-const durationMinutes = Math.floor((contest.duration % 3600) / 60);
+    const tomorrowContests = contests.filter((c) => {
 
-const durationStr =
-  durationHours > 0
-    ? durationHours + "h" + (durationMinutes > 0 ? " " + durationMinutes + "m" : "")
-    : durationMinutes + "m";
+        const d = new Date(c.start);
 
-const platformIcon =
-  config.platforms.icons[contest.host] || config.platforms.icons.default;
+        return (
+            d.getDate() === tomorrowDate.getDate() &&
+            d.getMonth() === tomorrowDate.getMonth() &&
+            d.getFullYear() === tomorrowDate.getFullYear()
+        );
 
-return (
-  platformIcon +
-  " *" +
-  contest.event +
-  "*\n⏰ *Time:* " +
-  startTime +
-  "\n⏳ *Duration:* " +
-  durationStr +
-  "\n🔗 " +
-  contest.href +
-  "\n\n"
-);
+    });
 
-};
+    let message = `*✨ Hello Chefs! 👨‍🍳 ✨*\n\n`;
 
-const todayContests = contests.filter((c) => {
-const d = new Date(c.start);
-return (
-d.getDate() === todayDate.getDate() &&
-d.getMonth() === todayDate.getMonth() &&
-d.getFullYear() === todayDate.getFullYear()
-);
-});
+    message += `*Today* (${formatDate(todayDate)}):\n`;
 
-const tomorrowContests = contests.filter((c) => {
-const d = new Date(c.start);
-return (
-d.getDate() === tomorrowDate.getDate() &&
-d.getMonth() === tomorrowDate.getMonth() &&
-d.getFullYear() === tomorrowDate.getFullYear()
-);
-});
+    if (todayContests.length > 0) {
 
-let messageToSend = `
-*✨ Hello Chefs! 👨‍🍳 ✨*
+        todayContests.forEach((contest) => {
 
-*Today* (${dayOfWeek}, ${formattedDate}):
-`;
+            const contestMessage = formatContest(contest);
 
-if (todayContests.length > 0) {
-todayContests.forEach((contest) => {
-const createdMessage = formatContest(contest);
+            setReminder(contestMessage, contest.start)
+              .catch(err => console.error("Reminder error:", err.message));
 
+            message += contestMessage;
 
-  setReminder(createdMessage, contest.start).catch((err) =>
-    console.error("Reminder error:", err.message)
-  );
+        });
 
-  messageToSend += createdMessage;
-});
+    } else {
 
+        message += "No contests today. Rest up!🍹 And don't forget to practice\n\n";
 
-} else {
-messageToSend +=
-"No contests today. Rest up!🍹 And don't forget to practice\n\n";
-}
+    }
 
-messageToSend += "────────────────\n\n";
+    message += "────────────────\n\n";
 
-messageToSend += `*Tomorrow* (${dayOfWeekTomo}, ${formattedDateTomo}):
-`;
+    message += `*Tomorrow* (${formatDate(tomorrowDate)}):\n`;
 
-if (tomorrowContests.length > 0) {
-tomorrowContests.forEach((contest) => {
-messageToSend += formatContest(contest);
-});
-} else {
-messageToSend +=
-"No contests tomorrow. Rest up!🍬 And don't forget to practice\n";
-}
+    if (tomorrowContests.length > 0) {
 
-messageToSend += "────────────────\n";
-messageToSend += "*Happy Coding and may your submissions be Accepted!😉*";
+        tomorrowContests.forEach((contest) => {
 
-return messageToSend;
+            message += formatContest(contest);
+
+        });
+
+    } else {
+
+        message += "No contests tomorrow. Rest up!🍹 And don't forget to practice\n";
+
+    }
+
+    message += "\n────────────────\n";
+    message += "*Happy Coding and may your submissions be Accepted!😉*";
+
+    return message;
+
 }
 
 export async function fetchData(sock) {
-try {
-const events = await ical.async.fromURL(CALENDAR_URL);
 
+    try {
 
-const contests = [];
+        const events = await ical.async.fromURL(CALENDAR_URL);
+        const contests = [];
 
-for (const key in events) {
-  const event = events[key];
+        for (const key in events) {
 
-  if (event.type === "VEVENT") {
-    const start = new Date(event.start);
-    const end = new Date(event.end);
+            const event = events[key];
 
-    const contestLink = extractLink(event);
+            if (event.type === "VEVENT") {
 
-    contests.push({
-      event: event.summary,
-      start: start,
-      duration: (end - start) / 1000,
-      href: contestLink,
-      host: detectPlatform(event.summary)
-    });
-  }
+                const start = new Date(event.start);
+                const end = new Date(event.end);
+
+                contests.push({
+                    event: event.summary,
+                    start: start,
+                    duration: (end - start) / 1000,
+                    href: extractLink(event),
+                    host: detectPlatform(event.summary)
+                });
+
+            }
+
+        }
+
+        contests.sort((a, b) => new Date(a.start) - new Date(b.start));
+
+        if (await checkFileAndDelete()) {
+
+            return createMessage(contests);
+
+        } else {
+
+            await messageAdmin(sock, "Error clearing reminder file");
+            return "";
+
+        }
+
+    } catch (error) {
+
+        await messageAdmin(sock, "Calendar fetch error: " + error.message);
+        return "";
+
+    }
+
 }
-
-contests.sort((a, b) => new Date(a.start) - new Date(b.start));
-
-if (await checkFileAndDelete()) {
-  return createMessage(contests);
-} else {
-  await messageAdmin(sock, "Error clearing reminder file");
-  return "";
-}
-
-
-} catch (error) {
-await messageAdmin(sock, "Calendar fetch error: " + error.message);
-return "";
-}
-}
-
